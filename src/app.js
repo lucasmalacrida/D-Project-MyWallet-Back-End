@@ -4,6 +4,8 @@ import cors from 'cors';
 import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import joi from 'joi';
+import bcryptjs from 'bcryptjs';
+import { v4 as uuid } from 'uuid';
 import dayjs from 'dayjs';
 import { stripHtml } from "string-strip-html";
 
@@ -25,14 +27,46 @@ try {
 const db = mongoClient.db();
 
 // Schemas:
-const exampleSchema = joi.object({
-    type: joi.string().required().valid('type1', 'type2')
+const signUpSchema = joi.object({
+    name: joi.string().required(),
+    email: joi.string().email().required(),
+    password: joi.string().min(3).required()
 });
 
 
 // EndPoints:
-app.post('/', async (req, res) => {
+app.post('/cadastro', async (req, res) => {
+    const { name, email, password } = req.body;
+
+    const validation = signUpSchema.validate(req.body, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
+    }
+
     try {
+        // DBs Validations
+        const user = await db.collection('users').findOne({ email });
+        if (user) { return res.status(409).send("E-mail já cadastrado!") }
+
+        await db.collection('users').insertOne({ name, email, password: bcryptjs.hashSync(password, 10) });
+
+        res.sendStatus(201);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+app.post('/', async (req, res) => {
+    const { name, email, password } = req.body;
+
+    try {
+        // DBs Validations
+        const user = await db.collection('users').findOne({ email });
+        if (user) { return res.status(409).send("E-mail já cadastrado!") }
+
+        await db.collection('users').insertOne({ name, email, password: bcryptjs.hashSync(password, 10) });
+        
         res.sendStatus(201);
     } catch (err) {
         res.status(500).send(err.message);
