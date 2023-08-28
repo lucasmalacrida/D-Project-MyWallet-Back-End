@@ -32,6 +32,10 @@ const signUpSchema = joi.object({
     email: joi.string().email().required(),
     password: joi.string().min(3).required()
 });
+const signInSchema = joi.object({
+    email: joi.string().email().required(),
+    password: joi.string().required()
+});
 
 
 // EndPoints:
@@ -58,29 +62,28 @@ app.post('/cadastro', async (req, res) => {
 });
 
 app.post('/', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { email, password } = req.body;
+
+    const validation = signInSchema.validate(req.body, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
+    }
 
     try {
         // DBs Validations
         const user = await db.collection('users').findOne({ email });
-        if (user) { return res.status(409).send("E-mail já cadastrado!") }
+        if (!user) { return res.status(409).send("E-mail não cadastrado!") }
+        if (!bcryptjs.compareSync(password, user.password)) { return res.status(401).send("Senha Incorreta!") }
 
-        await db.collection('users').insertOne({ name, email, password: bcryptjs.hashSync(password, 10) });
-        
-        res.sendStatus(201);
+        const token = uuid();
+        await db.collection('sessions').insertOne({ userId: user._id, token });
+
+        res.status(200).send({ token });
     } catch (err) {
         res.status(500).send(err.message);
     }
 });
-
-app.get('/', async (req, res) => {
-    try {
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
-});
-
 
 // Run Server:
 const PORT = 5000;
