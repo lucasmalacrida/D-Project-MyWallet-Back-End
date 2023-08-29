@@ -106,7 +106,7 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
     try {
         // DBs Validations
         const session = await db.collection('sessions').findOne({ token });
-        if (!session) return res.sendStatus(401);
+        if (!session) { return res.sendStatus(401); }
         const user = await db.collection('users').findOne({ _id: session.userId });
         if (!user) { return res.sendStatus(401); }
 
@@ -120,6 +120,33 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
         );
 
         res.sendStatus(200);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+app.get('/home', async (req, res) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    // Verificando se o Token foi recebido
+    if (!token) return res.sendStatus(401);
+
+    try {
+        // DBs Validations
+        const session = await db.collection('sessions').findOne({ token });
+        if (!session) { return res.sendStatus(401); }
+        const user = await db.collection('users').findOne({ _id: session.userId });
+        if (!user) { return res.sendStatus(401); }
+
+        const registriesObject = await db.collection('registries').findOne({ userId: session.userId });
+        const registries = registriesObject.registries;
+        const cash = registries
+            .map(x => x.type === "entrada" ? x.amount : x.type === "saida" ? -x.amount : 0)
+            .reduce((a, b) => a + b);
+
+        const response = { name: user.name, registries, cash };
+
+        res.status(200).send(response);
     } catch (err) {
         res.status(500).send(err.message);
     }
