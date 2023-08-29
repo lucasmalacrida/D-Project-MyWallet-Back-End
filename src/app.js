@@ -181,7 +181,7 @@ app.delete('/', async (req, res) => {
 });
 
 // Run Server:
-const PORT = 5000;
-app.listen(PORT, () => {
-    console.log(`Running server on localhost:${PORT}`);
+const port = process.env.PORT || 5000
+app.listen(port, () => {
+	console.log(`Running server on port ${PORT}`)
 });
