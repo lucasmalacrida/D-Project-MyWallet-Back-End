@@ -115,7 +115,14 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
 
         await db.collection('registries').updateOne(
             { userId: session.userId },
-            { $push: { registries: newRegistry } },
+            {
+                $push: {
+                    registries: {
+                        $each: [newRegistry],
+                        $position: 0
+                    }
+                }
+            },
             { upsert: true }
         );
 
@@ -139,6 +146,8 @@ app.get('/home', async (req, res) => {
         if (!user) { return res.sendStatus(401); }
 
         const registriesObject = await db.collection('registries').findOne({ userId: session.userId });
+        if (!registriesObject) { return res.status(200).send({name: user.name, registries: [], cash: 0}); }
+
         const registries = registriesObject.registries;
         const cash = registries
             .map(x => x.type === "entrada" ? x.amount : x.type === "saida" ? -x.amount : 0)
