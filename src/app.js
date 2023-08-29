@@ -36,7 +36,11 @@ const signInSchema = joi.object({
     email: joi.string().email().required(),
     password: joi.string().required()
 });
-
+const newRegistrySchema = joi.object({
+    name: joi.string().required(),
+    amount: joi.number().greater(0).required(),
+    type: joi.string().valid('entrada', 'saida').required()
+});
 
 // EndPoints:
 app.post('/cadastro', async (req, res) => {
@@ -79,7 +83,43 @@ app.post('/', async (req, res) => {
         const token = uuid();
         await db.collection('sessions').insertOne({ userId: user._id, token });
 
-        res.status(200).send({ token });
+        res.status(200).send({ name: user.name, token });
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+app.post('/nova-transacao/:tipo', async (req, res) => {
+    const { name, amount } = req.body;
+    const type = req.params.tipo;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    // Verificando se o Token foi recebido
+    if (!token) return res.sendStatus(401);
+
+    const validation = newRegistrySchema.validate({ name, amount, type }, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
+    }
+
+    try {
+        // DBs Validations
+        const session = await db.collection('sessions').findOne({ token });
+        if (!session) return res.sendStatus(401);
+        const user = await db.collection('users').findOne({ _id: session.userId });
+        if (!user) { return res.sendStatus(401); }
+
+        const date = dayjs().format('DD/MM');
+        const newRegistry = { date, name, amount, type };
+
+        await db.collection('registries').updateOne(
+            { userId: session.userId },
+            { $push: { registries: newRegistry } },
+            { upsert: true }
+        );
+
+        res.sendStatus(200);
     } catch (err) {
         res.status(500).send(err.message);
     }
