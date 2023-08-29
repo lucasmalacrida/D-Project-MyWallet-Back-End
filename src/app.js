@@ -183,5 +183,5 @@ app.delete('/', async (req, res) => {
 // Run Server:
 const port = process.env.PORT || 5000
 app.listen(port, () => {
-	console.log(`Running server on port ${PORT}`)
+	console.log(`Running server on port ${port}`)
 });
