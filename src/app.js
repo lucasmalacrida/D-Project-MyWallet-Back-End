@@ -1,48 +1,19 @@
-// Imports:
 import express, { json } from 'express';
 import cors from 'cors';
-import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
-import joi from 'joi';
+import { signUpSchema, signInSchema } from './schemas/users-schema.js';
+import { newRegistrySchema } from './schemas/registries-schema.js';
 import bcryptjs from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import dayjs from 'dayjs';
 import { stripHtml } from "string-strip-html";
+import db from './config/database.js';
 
-// Configs:
 const app = express();
 app.use(cors());
 app.use(json());
-dotenv.config();
 dayjs().format();
 
-// DataBase:
-const mongoClient = new MongoClient(process.env.DATABASE_URL);
-try {
-    await mongoClient.connect();
-    console.log('MongoDB Connected!');
-} catch (err) {
-    console.log(err.message);
-}
-const db = mongoClient.db();
-
-// Schemas:
-const signUpSchema = joi.object({
-    name: joi.string().required(),
-    email: joi.string().email().required(),
-    password: joi.string().min(3).required()
-});
-const signInSchema = joi.object({
-    email: joi.string().email().required(),
-    password: joi.string().required()
-});
-const newRegistrySchema = joi.object({
-    name: joi.string().required(),
-    amount: joi.number().greater(0).required(),
-    type: joi.string().valid('entrada', 'saida').required()
-});
-
-// EndPoints:
 app.post('/cadastro', async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -53,7 +24,6 @@ app.post('/cadastro', async (req, res) => {
     }
 
     try {
-        // DBs Validations
         const user = await db.collection('users').findOne({ email });
         if (user) { return res.status(409).send("E-mail já cadastrado!") }
 
@@ -75,7 +45,6 @@ app.post('/', async (req, res) => {
     }
 
     try {
-        // DBs Validations
         const user = await db.collection('users').findOne({ email });
         if (!user) { return res.status(409).send("E-mail não cadastrado!") }
         if (!bcryptjs.compareSync(password, user.password)) { return res.status(401).send("Senha Incorreta!") }
@@ -94,7 +63,6 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
     const type = req.params.tipo;
     const token = req.headers.authorization?.replace('Bearer ', '');
 
-    // Verificando se o Token foi recebido
     if (!token) return res.sendStatus(401);
 
     const validation = newRegistrySchema.validate({ name, amount, type }, { abortEarly: false });
@@ -104,7 +72,6 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
     }
 
     try {
-        // DBs Validations
         const session = await db.collection('sessions').findOne({ token });
         if (!session) { return res.sendStatus(401); }
         const user = await db.collection('users').findOne({ _id: session.userId });
@@ -135,18 +102,16 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
 app.get('/home', async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
 
-    // Verificando se o Token foi recebido
     if (!token) return res.sendStatus(401);
 
     try {
-        // DBs Validations
         const session = await db.collection('sessions').findOne({ token });
         if (!session) { return res.sendStatus(401); }
         const user = await db.collection('users').findOne({ _id: session.userId });
         if (!user) { return res.sendStatus(401); }
 
         const registriesObject = await db.collection('registries').findOne({ userId: session.userId });
-        if (!registriesObject) { return res.status(200).send({name: user.name, registries: [], cash: 0}); }
+        if (!registriesObject) { return res.status(200).send({ name: user.name, registries: [], cash: 0 }); }
 
         const registries = registriesObject.registries;
         const cash = registries
@@ -164,11 +129,9 @@ app.get('/home', async (req, res) => {
 app.delete('/', async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
 
-    // Verificando se o Token foi recebido
     if (!token) return res.sendStatus(401);
 
     try {
-        // DBs Validations
         const session = await db.collection('sessions').findOne({ token });
         if (!session) { return res.sendStatus(401); }
 
@@ -180,8 +143,5 @@ app.delete('/', async (req, res) => {
     }
 });
 
-// Run Server:
-const port = process.env.PORT || 5000
-app.listen(port, () => {
-	console.log(`Running server on port ${port}`)
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`--------------- Server running on port ${PORT}`));
