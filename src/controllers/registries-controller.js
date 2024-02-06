@@ -5,21 +5,14 @@ dayjs().format();
 export async function postRegistry(req, res) {
     const { name, amount } = req.body;
     const type = req.params.tipo;
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (!token) return res.sendStatus(401);
+    const userId = res.locals.userId;
 
     try {
-        const session = await db.collection('sessions').findOne({ token });
-        if (!session) { return res.sendStatus(401); }
-        const user = await db.collection('users').findOne({ _id: session.userId });
-        if (!user) { return res.sendStatus(401); }
-
         const date = dayjs().format('DD/MM');
         const newRegistry = { date, name, amount, type };
 
         await db.collection('registries').updateOne(
-            { userId: session.userId },
+            { userId },
             {
                 $push: {
                     registries: {
@@ -38,17 +31,11 @@ export async function postRegistry(req, res) {
 }
 
 export async function getRegistries(req, res) {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (!token) return res.sendStatus(401);
+    const user = res.locals.user;
+    const userId = res.locals.userId;
 
     try {
-        const session = await db.collection('sessions').findOne({ token });
-        if (!session) { return res.sendStatus(401); }
-        const user = await db.collection('users').findOne({ _id: session.userId });
-        if (!user) { return res.sendStatus(401); }
-
-        const registriesObject = await db.collection('registries').findOne({ userId: session.userId });
+        const registriesObject = await db.collection('registries').findOne({ userId });
         if (!registriesObject) { return res.status(200).send({ name: user.name, registries: [], cash: 0 }); }
 
         const registries = registriesObject.registries;

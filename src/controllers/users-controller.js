@@ -35,15 +35,10 @@ export async function postSignIn(req, res) {
 }
 
 export async function postLogOut(req, res) {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (!token) return res.sendStatus(401);
+    const sessionId = res.locals.sessionId;
 
     try {
-        const session = await db.collection('sessions').findOne({ token });
-        if (!session) { return res.sendStatus(401); }
-
-        const result = await db.collection('sessions').deleteOne({ _id: session._id });
+        const result = await db.collection('sessions').deleteOne({ _id: sessionId });
         if (result.deletedCount === 0) { return res.sendStatus(404) }
         return res.sendStatus(200);
     } catch (err) {
