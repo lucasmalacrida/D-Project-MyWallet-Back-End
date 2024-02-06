@@ -9,12 +9,6 @@ export async function postRegistry(req, res) {
 
     if (!token) return res.sendStatus(401);
 
-    const validation = newRegistrySchema.validate({ name, amount, type }, { abortEarly: false });
-    if (validation.error) {
-        const errors = validation.error.details.map(detail => detail.message);
-        return res.status(422).send(errors);
-    }
-
     try {
         const session = await db.collection('sessions').findOne({ token });
         if (!session) { return res.sendStatus(401); }
